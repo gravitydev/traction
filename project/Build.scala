@@ -2,14 +2,15 @@ import sbt._
 import Keys._
 
 object TractionBuild extends Build {
-  //val gravityRepo = "gravitydev" at "http://repos.gravitydev.com/app/repos/12"
+  val gravityRepo = "gravitydev" at "http://repos.gravitydev.com/app/repos/12"
 
   val commonSettings = Seq(
     organization  := "com.gravitydev",
-    version       := "2.0.1-SNAPSHOT",
+    version       := "0.0.1-SNAPSHOT",
     scalaVersion  := "2.10.0",
     scalacOptions ++= Seq("-deprecation","-unchecked"/*,"-XX:-OmitStackTraceInFastThrow"*/),
-    testOptions in Test += Tests.Argument("-oF")
+    testOptions in Test += Tests.Argument("-oF"),
+    publishTo := Some(gravityRepo)
   )
 
   lazy val core: Project = Project(id = "traction-core", base = file("core")).settings(commonSettings:_*).settings(
