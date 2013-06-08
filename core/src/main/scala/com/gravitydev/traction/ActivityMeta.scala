@@ -8,11 +8,11 @@ case class ActivityMeta [A <: Activity[_,_] : Format](
   name: String, 
   version: String, 
   description: String = "",
-  taskList: String,
-  taskScheduleToCloseTimeout: Int = 0,
-  taskScheduleToStartTimeout: Int = 0,
-  taskStartToCloseTimeout: Int = 0,
-  taskHeartbeatTimeout: Int = 0,
+  defaultTaskList: String,
+  defaultTaskScheduleToCloseTimeout: Int = 0,
+  defaultTaskScheduleToStartTimeout: Int = 0,
+  defaultTaskStartToCloseTimeout: Int = 0,
+  defaultTaskHeartbeatTimeout: Int = 0,
   id: A => String
 ) {
   val format = implicitly[Format[A]]

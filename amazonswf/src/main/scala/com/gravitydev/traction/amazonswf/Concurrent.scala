@@ -7,6 +7,7 @@ import akka.actor.ActorSystem
 import scala.concurrent.duration._
 import java.util.concurrent.{Future => JavaFuture}
 import java.util.concurrent.{Future => JavaFuture}
+import scala.language.{implicitConversions, postfixOps}
 
 object Concurrent {
   implicit def toAkkaFuture [T](javaFuture: JavaFuture[T])(implicit system: ActorSystem) = wrapJavaFutureInAkkaFuture(javaFuture)

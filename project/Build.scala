@@ -6,7 +6,7 @@ object TractionBuild extends Build {
 
   val commonSettings = Seq(
     organization  := "com.gravitydev",
-    version       := "0.0.1-SNAPSHOT",
+    version       := "0.0.3-SNAPSHOT",
     scalaVersion  := "2.10.0",
     scalacOptions ++= Seq("-deprecation","-unchecked"/*,"-XX:-OmitStackTraceInFastThrow"*/),
     testOptions in Test += Tests.Argument("-oF"),
@@ -18,8 +18,8 @@ object TractionBuild extends Build {
     //publishTo := Some(gravityRepo),
     libraryDependencies ++= Seq(
       "org.slf4j"     % "slf4j-api"     % "1.6.4",
-      "play"          %% "play"         % "2.1.0", // TODO: remove play dependency from core package
-      "org.scalatest" %%  "scalatest"   % "1.8"     % "test" cross CrossVersion.full
+      "play"          %% "play"         % "2.1.1", // TODO: remove play dependency from core package
+      "org.scalatest" %%  "scalatest"   % "1.9.1"     % "test"
     )
   )
 
@@ -29,8 +29,8 @@ object TractionBuild extends Build {
     libraryDependencies ++= Seq(
       "com.typesafe.akka" %% "akka-actor"   % "2.1.0",
       "com.typesafe.akka" %% "akka-agent"   % "2.1.0",
-      "play"              %% "play"         % "2.1.0",
-      "com.amazonaws"     % "aws-java-sdk"  % "1.3.7"
+      "play"              %% "play"         % "2.1.1",
+      "com.amazonaws"     % "aws-java-sdk"  % "1.4.1"
     )
   ) dependsOn core 
 }

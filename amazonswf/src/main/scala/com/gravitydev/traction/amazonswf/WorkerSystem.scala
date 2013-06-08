@@ -27,8 +27,8 @@ class WorkerSystem (swf: AmazonSimpleWorkflowAsyncClient)(implicit system: Actor
     }
   }
   
-  def startWorkflowWorker [W <: Workflow[_] : WorkflowMeta] = {
-    val meta = implicitly[WorkflowMeta[W]]
+  def startWorkflowWorker [W <: Workflow[_]](meta: WorkflowMeta[W]) = {
+    implicit val mt = meta
     
     // try to register the workflow
     Exception.catching(classOf[TypeAlreadyExistsException]) opt {
@@ -37,13 +37,16 @@ class WorkerSystem (swf: AmazonSimpleWorkflowAsyncClient)(implicit system: Actor
           .withDomain(meta.domain)
           .withName(meta.name)
           .withVersion(meta.version)
+          .withDefaultExecutionStartToCloseTimeout(meta.defaultExecutionStartToCloseTimeout.toString)
+          .withDefaultTaskStartToCloseTimeout(meta.defaultExecutionStartToCloseTimeout.toString)
       }
     } getOrElse logger.info("Workflow " + meta.name + " already registered")
     
     system.actorOf(Props(new WorkflowWorker[W](swf)), name=meta.name+"-workflow")
   }
-
-  def startActivityWorker [C : Context, T : Format, A <: Activity[C,T]](implicit meta: ActivityMeta[A with Activity[C,T]]) = {
+  
+  def startActivityWorker [C, T:Format, A <: Activity[C,T]](meta: ActivityMeta[A with Activity[C,T]], context: C) = {
+    implicit val mt = meta
     // try to register the activity
     Exception.catching(classOf[TypeAlreadyExistsException]) opt {
       swf registerActivityType {
@@ -51,9 +54,13 @@ class WorkerSystem (swf: AmazonSimpleWorkflowAsyncClient)(implicit system: Actor
           .withDomain(meta.domain)
           .withName(meta.name)
           .withVersion(meta.version)
+          .withDefaultTaskList(new TaskList().withName(meta.defaultTaskList))
+          .withDefaultTaskScheduleToStartTimeout(meta.defaultTaskScheduleToStartTimeout.toString)
+          .withDefaultTaskStartToCloseTimeout(meta.defaultTaskStartToCloseTimeout.toString)
       }
     } getOrElse logger.info("Activity " + meta.name + " already registered")
     
-    system.actorOf(Props(new ActivityWorker[C,T,A](swf)), name=meta.name+"-activity")
+    system.actorOf(Props(new ActivityWorker[C,T,A](swf, context)), name=meta.name+"-activity")
   }
+
 }

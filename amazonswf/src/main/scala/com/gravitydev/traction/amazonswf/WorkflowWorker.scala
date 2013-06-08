@@ -7,6 +7,7 @@ import com.amazonaws.services.simpleworkflow.model._
 import Concurrent._
 import scala.collection.JavaConversions._
 import play.api.libs.json.Json
+import scala.language.postfixOps
 
 class WorkflowWorker [W <: Workflow[_] : WorkflowMeta](swf: AmazonSimpleWorkflowAsyncClient) extends ConstantAsyncListener {
   val meta = implicitly[WorkflowMeta[W]]
@@ -50,7 +51,7 @@ class WorkflowWorker [W <: Workflow[_] : WorkflowMeta](swf: AmazonSimpleWorkflow
                       )
                       .withActivityId(a.id)
                       .withTaskList(
-                        new TaskList().withName(a.meta.taskList)
+                        new TaskList().withName(a.meta.defaultTaskList)
                       )
                       .withInput(a.input)
                   )
