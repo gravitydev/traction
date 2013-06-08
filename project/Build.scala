@@ -6,7 +6,7 @@ object TractionBuild extends Build {
 
   val commonSettings = Seq(
     organization  := "com.gravitydev",
-    version       := "0.0.3-SNAPSHOT",
+    version       := "0.0.4-SNAPSHOT",
     scalaVersion  := "2.10.0",
     scalacOptions ++= Seq("-deprecation","-unchecked"/*,"-XX:-OmitStackTraceInFastThrow"*/),
     testOptions in Test += Tests.Argument("-oF"),
