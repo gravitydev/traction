@@ -8,10 +8,9 @@ import Concurrent._
 import play.api.libs.json.{Json, Format}
 import scala.language.postfixOps
 
-class ActivityWorker [C, T : Format, A <: Activity[C,T] : ActivityMeta] (swf: AmazonSimpleWorkflowAsyncClient, context: C) extends ConstantAsyncListener {
+class ActivityWorker [C, T : Format, A <: Activity[C,T]] (swf: AmazonSimpleWorkflowAsyncClient, meta: ActivityMeta[A], context: C) extends ConstantAsyncListener {
   import system.dispatcher
-  val meta = implicitly[ActivityMeta[A]]
-  
+
   def listen = {
     log.info("Listening for tasks on: " + meta.defaultTaskList)
     
@@ -24,12 +23,22 @@ class ActivityWorker [C, T : Format, A <: Activity[C,T] : ActivityMeta] (swf: Am
       Option(task.getTaskToken) filter (_!="") foreach {token =>
         val activity = meta.format.reads(Json.parse((task.getInput span (_!=':') _2) drop 1)) get;
         log.info("Activity task: "+activity)
-        val result = activity(context)
         
-        swf respondActivityTaskCompletedAsync {
-          new RespondActivityTaskCompletedRequest()
-            .withTaskToken(token)
-            .withResult(Json.stringify(implicitly[Format[T]].writes(result.asInstanceOf[T])))
+        try {
+          val result = activity(context)
+          
+          swf respondActivityTaskCompletedAsync {
+            new RespondActivityTaskCompletedRequest()
+              .withTaskToken(token)
+              .withResult(Json.stringify(implicitly[Format[T]].writes(result.asInstanceOf[T])))
+          }
+        } catch {
+          case e: Throwable => swf.respondActivityTaskFailedAsync {
+            new RespondActivityTaskFailedRequest()
+              .withTaskToken(token)
+              .withReason("Exception thrown")
+              .withDetails(e.getMessage() + "\n" + e.getStackTraceString)
+          }
         }
       }
       ()
@@ -38,3 +47,4 @@ class ActivityWorker [C, T : Format, A <: Activity[C,T] : ActivityMeta] (swf: Am
     }
   }
 }
+

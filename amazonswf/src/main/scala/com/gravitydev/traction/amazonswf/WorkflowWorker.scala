@@ -9,8 +9,7 @@ import scala.collection.JavaConversions._
 import play.api.libs.json.Json
 import scala.language.postfixOps
 
-class WorkflowWorker [W <: Workflow[_] : WorkflowMeta](swf: AmazonSimpleWorkflowAsyncClient) extends ConstantAsyncListener {
-  val meta = implicitly[WorkflowMeta[W]]
+class WorkflowWorker [W <: Workflow[_]](swf: AmazonSimpleWorkflowAsyncClient, meta: WorkflowMeta[W]) extends ConstantAsyncListener {
   import system.dispatcher
   
   def listen = {

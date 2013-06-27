@@ -1,5 +1,7 @@
 package com.gravitydev.traction
 
-trait Workflow[T] {
-  def flow: Step[_]
+import play.api.libs.json.Format
+
+abstract class Workflow[T : Format] {
+  def flow: Step[T]
 }

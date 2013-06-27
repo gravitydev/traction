@@ -30,8 +30,12 @@ object TractionBuild extends Build {
       "com.typesafe.akka" %% "akka-actor"   % "2.1.0",
       "com.typesafe.akka" %% "akka-agent"   % "2.1.0",
       "play"              %% "play"         % "2.1.1",
-      "com.amazonaws"     % "aws-java-sdk"  % "1.4.1"
+      "com.amazonaws"     % "aws-java-sdk"  % "1.4.7"
     )
   ) dependsOn core 
+
+  lazy val sample = Project(id = "traction-sample", base = file("sample"))
+    .dependsOn(core, amazonswf)
+    .settings(commonSettings:_*)
 }
 

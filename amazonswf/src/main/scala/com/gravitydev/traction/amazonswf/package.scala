@@ -5,7 +5,8 @@ import scala.language.implicitConversions
 
 package object amazonswf {
   
-  implicit def toInvocation [C,T,A<:Activity[C,T]:ActivityMeta](activity: A with Activity[C,T]) = new ActivityInvocation(1, activity)
+  implicit def toInvocation [C,T,A<:Activity[C,T]:ActivityMeta](activity: A with Activity[C,T]) = 
+    new ActivityInvocation(activity, 1)
 
   implicit def singleActivityWorkflowF [C,T,A<:Activity[C,T]:Format:ActivityMeta] = new Format [SingleActivityWorkflow[C,T,A]] {
     def reads (json: JsValue) = Json.fromJson[A](json \ "activity") map {a => SingleActivityWorkflow(a)}

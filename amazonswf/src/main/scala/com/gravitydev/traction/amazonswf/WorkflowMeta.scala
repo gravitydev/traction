@@ -8,9 +8,10 @@ case class WorkflowMeta [W <: Workflow[_] : Format] (
   name: String, 
   version: String, 
   taskList: String,
+  id: W => String,
   defaultExecutionStartToCloseTimeout: Int = 3600,
   defaultTaskStartToCloseTimeout: Int = 3600,
-  id: W => String
+  childPolicy: String = "TERMINATE"
 ) {
   val format = implicitly[Format[W]]
 }
@@ -18,3 +19,4 @@ case class WorkflowMeta [W <: Workflow[_] : Format] (
 case class SingleActivityWorkflow [C, T, A <: Activity[C,T] : ActivityMeta : Format](activity: A with Activity[C,T]) extends Workflow [T] {
   def flow = activity
 }
+
