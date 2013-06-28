@@ -12,6 +12,10 @@ Requirements that Traction is focused on meeting:
 - Gracefully handle the introduction of new versions of tasks.
 - All work is queued up, machines can be brought down and brough up safely without losing work.
 
+Architecture
+------------
+The system consists of workers and a client that can be used to spawn those workers, or invoke work to be performed by them. It uses Akka for all of the concurrency code and it persists all data and distributes work using the facilities of Amazon Simple Workflow.
+
 The central concepts behind Traction are: Workflow and Activity.
 
 Workflow

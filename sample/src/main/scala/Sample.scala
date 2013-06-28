@@ -48,9 +48,8 @@ object Sample extends App {
 	case class ShowNumber (number: Int) extends Workflow[String] {
 	  def flow = for {
 	    number <- DoubleNumber(number)
-	    n <- PrintNumber(number+3)
-	    f <- DoubleNumber(n.toInt)
-	  } yield n
+	    n <- PrintNumber(number+3) && DoubleNumber(number)
+	  } yield n.toString
 	}
 
   val creds = new BasicAWSCredentials("AKIAII2HQPMP3BDWUT3Q", "cLw1xdO1Wy/FPgJlasTUvuG5ZFSpaCoJLg7obFyM")

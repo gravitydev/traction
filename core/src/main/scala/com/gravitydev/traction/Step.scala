@@ -29,7 +29,7 @@ class SequenceInvocation[Z, A <: Activity[_,Z], B](first: ActivityInvocation[Z,A
         }
       )
       case ActivityInProcess(_) => WaitOnActivities
-    } getOrElse ScheduleActivities(List(a.schedule(stepNumber)))
+    } getOrElse ScheduleActivities(List(a.schedule))
   }
   def withNumber(stepNum: Int) = new SequenceInvocation(a, b, stepNum)
 }
@@ -38,7 +38,21 @@ class ParallelInvocation [I,A<:Activity[_,I], J,B<:Activity[_,J]] (step1: Activi
   private val a = step1.withNumber(stepNumber)
   private val b = step2.withNumber(stepNumber+1)
   
-  def decide (history: List[ActivityState]) = ???
+  def decide (history: List[ActivityState]) = {
+    val status1 = a.status(history)
+    val status2 = b.status(history)
+    
+    // if neither has been started
+    if (status1.isEmpty && status2.isEmpty) {
+      ScheduleActivities(List(a.schedule, b.schedule))
+    } else {
+      (for (as <- status1; bs <- status2) yield {
+        
+      }) getOrElse WaitOnActivities
+    }
+    
+    ???
+  }
   
   def withNumber (stepNum: Int) = new ParallelInvocation (step1, step2, stepNum)
 }
@@ -55,27 +69,20 @@ class ActivityInvocation [T, A <: Activity[_,T] : ActivityMeta] (
 ) extends Step [T] {
   lazy val meta = implicitly[ActivityMeta[A]]
   
-  def parseResult (res: String): T = {
-    println("Parsing result: " + res)
-    println(activity.resultFormat)
-    println("Got: " + activity.resultFormat.reads(Json.parse(res)) )
-    activity.resultFormat.reads(Json.parse(res)).get
-  }
+  def parseResult (res: String): T = activity.resultFormat.reads(Json.parse(res)).get
   
-  def status (history: List[ActivityState]): Option[ActivityState] = {
-    println("STATUS: " + activity + " - " + stepNumber)
-    println("FIND: " + history.find(_.stepNumber == stepNumber))
-    history.find(_.stepNumber == stepNumber)
-  }
+  def status (history: List[ActivityState]): Option[ActivityState] = history.find(_.stepNumber == stepNumber)
   
   def decide (history: List[ActivityState]) = status(history) map {
     case ActivityComplete(_, res) => res fold (error => FailWorkflow(error), result => CompleteWorkflow(result))
     case ActivityInProcess(_) => WaitOnActivities
   } getOrElse ScheduleActivities(List(ScheduleActivity(activity, stepNumber)))
   
-  def schedule (stepNum: Int): ScheduleActivity[A with Activity[_,_]] = ScheduleActivity(activity, stepNum)
+  def schedule: ScheduleActivity[A with Activity[_,_]] = ScheduleActivity(activity, stepNumber)
   
   def flatMap [X](fn: T => Step[X]) = new SequenceInvocation[T,A,X](this, fn, stepNumber)
+  
+  def && [J,Z,Y <: Activity[J,Z]](i: Y with Activity[J,Z])(implicit ev: ActivityMeta[Y]) = new ParallelInvocation[T,A,Z,Y](this, new ActivityInvocation(i, stepNumber+1), stepNumber)
   
   def withNumber (stepNum: Int) = new ActivityInvocation(activity, stepNum)
 }
