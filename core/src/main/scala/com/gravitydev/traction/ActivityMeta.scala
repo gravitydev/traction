@@ -3,6 +3,7 @@ package amazonswf
 
 import play.api.libs.json.Format
 
+// This should eventually move to the traction-amazonswf sub-project
 case class ActivityMeta [A <: Activity[_,_] : Format](
   domain: String, 
   name: String, 

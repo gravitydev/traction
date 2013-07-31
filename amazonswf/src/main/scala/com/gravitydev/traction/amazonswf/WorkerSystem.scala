@@ -27,9 +27,9 @@ class WorkerSystem (swf: AmazonSimpleWorkflowAsyncClient)(implicit system: Actor
     }
   }
   
-  def startWorkflowWorker [W <: Workflow[_]](meta: WorkflowMeta[W]) = {
+  def startWorkflowWorker [T, W <: Workflow[_]](meta: WorkflowMeta[W with Workflow[T]]) = {
     registerWorkflow(meta) 
-    system.actorOf(Props(new WorkflowWorker[W](swf, meta)), name=meta.name+"-workflow")
+    system.actorOf(Props(new WorkflowWorker(swf, meta)), name=meta.name+"-workflow")
   }
 
   def registerWorkflow [W <: Workflow[_]](meta: WorkflowMeta[W]) = {

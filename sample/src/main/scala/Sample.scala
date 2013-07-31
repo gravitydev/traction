@@ -45,12 +45,22 @@ object Sample extends App {
     id = _.number.toString
   )
   
+  
 	case class ShowNumber (number: Int) extends Workflow[String] {
 	  def flow = for {
-	    number <- DoubleNumber(number)
-	    n <- PrintNumber(number+3) && DoubleNumber(number)
+	    number   <- DoubleNumber(number)
+	    n        <- PrintNumber(number+3) && DoubleNumber(number)
 	  } yield n.toString
 	}
+  
+  /*
+	case class Test (number: Int) extends Workflow[String] {
+	  def flow = for {
+	    n <- DoubleNumber(number) && DoubleNumber(number)
+	    x <- DoubleNumber(n._1)
+	  } yield n.toString
+	}
+	*/
 
   val creds = new BasicAWSCredentials("AKIAII2HQPMP3BDWUT3Q", "cLw1xdO1Wy/FPgJlasTUvuG5ZFSpaCoJLg7obFyM")
   val swf = new AmazonSimpleWorkflowAsyncClient(creds)
@@ -87,7 +97,7 @@ object Sample extends App {
     ActivityComplete(3, Right("8"))
   )
   
-  val res = ShowNumber(1).flow.decide(history)
+  val res = ShowNumber(1).flow.decide(history, res => CompleteWorkflow(res), error => FailWorkflow(error))
   
   println(res)
 }
@@ -105,3 +115,8 @@ case class PrintNumber (number: Int) extends Activity[Unit,String] {
   def apply (ctx: Unit) = number.toString
 }
 
+/*
+case class PrintPair (pair: (Int,Int)) extends Activity[Unit,String] {
+  def apply (ctx: Unit) = pair.toString
+}
+*/

@@ -8,14 +8,14 @@ package object amazonswf {
   implicit def toInvocation [C,T,A<:Activity[C,T]:ActivityMeta](activity: A with Activity[C,T]) = 
     new ActivityInvocation(activity, 1)
 
-  implicit def singleActivityWorkflowF [C,T,A<:Activity[C,T]:Format:ActivityMeta] = new Format [SingleActivityWorkflow[C,T,A]] {
+  implicit def singleActivityWorkflowF [C,T:Format,A<:Activity[C,T]:Format:ActivityMeta] = new Format [SingleActivityWorkflow[C,T,A]] {
     def reads (json: JsValue) = Json.fromJson[A](json \ "activity") map {a => SingleActivityWorkflow(a)}
     def writes (wf: SingleActivityWorkflow[C,T,A]) = Json.obj("activity" -> Json.toJson(wf.activity))
   }
   
-  implicit def toWrappedActivity [C,T,A<:Activity[C,T]:Format:ActivityMeta](a: A with Activity[C,T]) = new ActivityWrapper(a)
+  implicit def toWrappedActivity [C,T:Format,A<:Activity[C,T]:Format:ActivityMeta](a: A with Activity[C,T]) = new ActivityWrapper(a)
   
-  implicit def singleActivityWorkflowM [C,T,A<:Activity[C,T]:ActivityMeta:Format] = {
+  implicit def singleActivityWorkflowM [C,T:Format,A<:Activity[C,T]:ActivityMeta:Format] = {
     val am = implicitly[ActivityMeta[A]]
     WorkflowMeta[SingleActivityWorkflow[C,T,A]] (
       domain    = am.domain,
@@ -26,11 +26,11 @@ package object amazonswf {
     )
   }
   
-  private def activityMetaToWorkflowMeta [C,T,A<:Activity[C,T]:Format] (meta: ActivityMeta[A with Activity[C,T]]) = {
-    singleActivityWorkflowM[C,T,A](meta, implicitly[Format[A]])
+  private def activityMetaToWorkflowMeta [C,T:Format,A<:Activity[C,T]:Format] (meta: ActivityMeta[A with Activity[C,T]]) = {
+    singleActivityWorkflowM[C,T,A](implicitly[Format[T]], meta, implicitly[Format[A]])
   }
   
-  implicit class ActivityMetaPimp[C,T,A<:Activity[C,T]:Format](m: ActivityMeta[A with Activity[C,T]]) {
+  implicit class ActivityMetaPimp[C,T:Format,A<:Activity[C,T]:Format](m: ActivityMeta[A with Activity[C,T]]) {
     def asWorkflow = activityMetaToWorkflowMeta[C,T,A](m)
   }
   

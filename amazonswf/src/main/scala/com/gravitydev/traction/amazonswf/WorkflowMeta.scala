@@ -16,7 +16,7 @@ case class WorkflowMeta [W <: Workflow[_] : Format] (
   val format = implicitly[Format[W]]
 }
 
-case class SingleActivityWorkflow [C, T, A <: Activity[C,T] : ActivityMeta : Format](activity: A with Activity[C,T]) extends Workflow [T] {
+case class SingleActivityWorkflow [C, T : Format, A <: Activity[C,T] : ActivityMeta : Format](activity: A with Activity[C,T]) extends Workflow [T] {
   def flow = activity
 }
 

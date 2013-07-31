@@ -9,7 +9,7 @@ import scala.collection.JavaConversions._
 import play.api.libs.json.Json
 import scala.language.postfixOps
 
-class WorkflowWorker [W <: Workflow[_]](swf: AmazonSimpleWorkflowAsyncClient, meta: WorkflowMeta[W]) extends ConstantAsyncListener {
+class WorkflowWorker [T, W <: Workflow[T]](swf: AmazonSimpleWorkflowAsyncClient, meta: WorkflowMeta[W with Workflow[T]]) extends ConstantAsyncListener {
   import system.dispatcher
   
   def listen = {
@@ -33,7 +33,11 @@ class WorkflowWorker [W <: Workflow[_]](swf: AmazonSimpleWorkflowAsyncClient, me
         val st = state(hist)
         
         log.info("State: " + st)
-        val decision = workflow.flow.decide(st)
+        val decision = workflow.flow.decide(
+          st, 
+          result => CompleteWorkflow(workflow.serializeResult(result)),
+          error => FailWorkflow(error)
+        )
         
         log.info("Decision: " + decision)
         
