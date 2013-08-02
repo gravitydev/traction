@@ -4,6 +4,7 @@ import com.amazonaws.auth.BasicAWSCredentials
 import akka.actor.ActorSystem
 import com.gravitydev.traction._, amazonswf._
 import play.api.libs.json.Json
+import scalaz._, syntax.id._
 
 object Sample extends App {
   implicit val system = ActorSystem("traction-sample")
@@ -92,9 +93,9 @@ object Sample extends App {
   */
   
   val history = List[ActivityState](
-    ActivityComplete(1, Right("4")),
-    ActivityComplete(2, Right("\"4\"")),
-    ActivityComplete(3, Right("8"))
+    ActivityComplete(1, "4".right),
+    ActivityComplete(2, "\"4\"".right),
+    ActivityComplete(3, "8".right)
   )
   
   val res = ShowNumber(1).flow.decide(history, res => CompleteWorkflow(res), error => FailWorkflow(error))

@@ -19,7 +19,8 @@ object TractionBuild extends Build {
     libraryDependencies ++= Seq(
       "org.slf4j"     % "slf4j-api"     % "1.6.4",
       "play"          %% "play"         % "2.1.1", // TODO: remove play dependency from core package
-      "org.scalatest" %%  "scalatest"   % "1.9.1"     % "test"
+      "org.scalatest" %%  "scalatest"   % "1.9.1"     % "test",
+      "org.scalaz"    %% "scalaz-core" % "7.0.2"
     )
   )
 

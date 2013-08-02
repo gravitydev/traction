@@ -2,6 +2,7 @@ package com.gravitydev.traction
 
 import play.api.libs.json.Json
 import amazonswf.ActivityMeta
+import scalaz._, syntax.validation._, syntax.applicative._
 
 trait Step [T] {
   def decide (state: List[ActivityState], onSuccess: T => WorkflowDecision, onFailure: String => WorkflowDecision): WorkflowDecision
@@ -35,24 +36,6 @@ class SequenceInvocation[A, B](first: Step[A], b: A => Step[B], val stepNumber: 
   def withNumber(stepNum: Int) = new SequenceInvocation(a, b, stepNum)
 }
 
-/*
-class SequenceInvocation[Z, A <: Activity[_,Z], B](first: ActivityInvocation[Z,A], b: Z => Step[B], val stepNumber: Int) extends Step[B] {
-  private val a = first.withNumber(stepNumber)
-  def decide (history: List[ActivityState], onSuccess: B=>WorkflowDecision, onFailure: String=>WorkflowDecision) = {
-    a.status(history) map {
-      case ActivityComplete(_, res) => res fold (
-        error => FailWorkflow(error), 
-        result => {
-          b(a.withNumber(stepNumber).parseResult(result)).withNumber(stepNumber+1).decide(history, onSuccess, onFailure)
-        }
-      )
-      case ActivityInProcess(_) => WaitOnActivities
-    } getOrElse ScheduleActivities(List(a.schedule))
-  }
-  def withNumber(stepNum: Int) = new SequenceInvocation(a, b, stepNum)
-}
- */
-
 class ParallelInvocation [I,A<:Activity[_,I], J,B<:Activity[_,J]] (step1: ActivityInvocation[_,A], step2: ActivityInvocation[_,B], val stepNumber: Int) extends Step[(I,J)] {
   private val a = step1.withNumber(stepNumber)
   private val b = step2.withNumber(stepNumber+1)
@@ -66,13 +49,15 @@ class ParallelInvocation [I,A<:Activity[_,I], J,B<:Activity[_,J]] (step1: Activi
       // start them both
       ScheduleActivities(List(a.schedule, b.schedule))
       
-    // other wise either collect their statuses or wait some more
+    // otherwise either collect their statuses or wait some more
     } else {
       (for (as <- status1; bs <- status2) yield {
         (as,bs) match {
           // scalaz this shit
-          case (ActivityComplete(_,Right(ar)), ActivityComplete(_,Right(br))) => onSuccess(a.parseResult(ar).asInstanceOf[I] -> b.parseResult(br).asInstanceOf[J])
-          case x => onFailure(x.toString)
+          case (ActivityComplete(_,ar), ActivityComplete(_,br)) => ((ar.validation.toValidationNel |@| br.validation.toValidationNel) {(ra, rb) =>
+            onSuccess(a.parseResult(ra).asInstanceOf[I] -> b.parseResult(rb).asInstanceOf[J]) // can't get inference to work right
+          } valueOr {e => onFailure(e.list.mkString("; "))})
+          case x => WaitOnActivities
         }
       }) getOrElse WaitOnActivities
     }
@@ -85,7 +70,7 @@ sealed trait ActivityState {
   def stepNumber: Int
 }
 case class ActivityInProcess (stepNumber: Int) extends ActivityState
-case class ActivityComplete (stepNumber: Int, result: Either[String,String]) extends ActivityState
+case class ActivityComplete (stepNumber: Int, result: String \/ String) extends ActivityState
 
 class ActivityInvocation [T, A <: Activity[_,T] : ActivityMeta] (
   val activity: A with Activity[_,T],

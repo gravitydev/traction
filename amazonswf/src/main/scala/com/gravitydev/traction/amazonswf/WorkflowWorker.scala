@@ -8,6 +8,7 @@ import Concurrent._
 import scala.collection.JavaConversions._
 import play.api.libs.json.Json
 import scala.language.postfixOps
+import scalaz._, std.either._, syntax.id._
 
 class WorkflowWorker [T, W <: Workflow[T]](swf: AmazonSimpleWorkflowAsyncClient, meta: WorkflowMeta[W with Workflow[T]]) extends ConstantAsyncListener {
   import system.dispatcher
@@ -93,8 +94,8 @@ class WorkflowWorker [T, W <: Workflow[T]](swf: AmazonSimpleWorkflowAsyncClient,
   
   def state (hist: List[ActivityEvent]): List[ActivityState] = hist collect {
     case started @ ActivityStarted(stepNumber) => hist.find(ev => ev.stepNumber == stepNumber && started != ev) flatMap {
-      case ActivitySucceeded(num, res) => Some(ActivityComplete(num, Right(res)))
-      case ActivityFailed(num, reason) => Some(ActivityComplete(num, Left(reason)))
+      case ActivitySucceeded(num, res) => Some(ActivityComplete(num, res.right[String]))
+      case ActivityFailed(num, reason) => Some(ActivityComplete(num, reason.left))
       case x => sys.error("Unhandled event: " + x)
     } getOrElse ActivityInProcess(stepNumber)
   }
