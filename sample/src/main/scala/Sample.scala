@@ -63,7 +63,7 @@ object Sample extends App {
 	}
 	*/
 
-  val creds = new BasicAWSCredentials("AKIAII2HQPMP3BDWUT3Q", "cLw1xdO1Wy/FPgJlasTUvuG5ZFSpaCoJLg7obFyM")
+  val creds = new BasicAWSCredentials("xxxxxxxxxxxxxxxx", "xxxxxxxxxxxxxx")
   val swf = new AmazonSimpleWorkflowAsyncClient(creds)
 
   val ws = new WorkerSystem(swf)

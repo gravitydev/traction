@@ -18,7 +18,7 @@ object TractionBuild extends Build {
     //publishTo := Some(gravityRepo),
     libraryDependencies ++= Seq(
       "org.slf4j"     % "slf4j-api"     % "1.6.4",
-      "com.typesafe.play" %% "play"         % "2.2.0", // TODO: remove play dependency from core package
+      "com.typesafe.play" %% "play"         % "2.2.2", // TODO: remove play dependency from core package
       "org.scalatest" %%  "scalatest"   % "1.9.1"     % "test",
       "org.scalaz"    %% "scalaz-core" % "7.0.2"
     ),
@@ -31,7 +31,7 @@ object TractionBuild extends Build {
     libraryDependencies ++= Seq(
       "com.typesafe.akka" %% "akka-actor"   % "2.1.0",
       "com.typesafe.akka" %% "akka-agent"   % "2.1.0",
-      "com.amazonaws"     % "aws-java-sdk"  % "1.4.7"
+      "com.amazonaws"     % "aws-java-sdk"  % "1.7.5",
       "com.typesafe.play" %% "play"         % "2.2.0"
     )
   ) dependsOn core 
