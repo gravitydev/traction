@@ -1,3 +1,0 @@
-package traction
-
-trait Serializer 

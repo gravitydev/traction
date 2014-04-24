@@ -6,11 +6,10 @@ import com.amazonaws.services.simpleworkflow.AmazonSimpleWorkflowAsyncClient
 import com.amazonaws.services.simpleworkflow.model._
 import Concurrent._
 import scala.collection.JavaConversions._
-import play.api.libs.json.Json
 import scala.language.postfixOps
 import scalaz._, std.either._, syntax.id._
 
-class WorkflowWorker [T, W <: Workflow[T]](swf: AmazonSimpleWorkflowAsyncClient, meta: WorkflowMeta[W with Workflow[T]]) extends ConstantAsyncListener {
+class WorkflowWorker [T, W <: Workflow[T]](swf: AmazonSimpleWorkflowAsyncClient, meta: SwfWorkflowMeta[T,W]) extends ConstantAsyncListener {
   import system.dispatcher
   
   def listen = {
@@ -26,7 +25,7 @@ class WorkflowWorker [T, W <: Workflow[T]](swf: AmazonSimpleWorkflowAsyncClient,
         val events = task.getEvents.toList
         
         // find workflow
-        val workflow = events collect {case SwfEvents.WorkflowExecutionStarted(attr) => meta.format.reads(Json.parse(attr.getInput)).get} head
+        val workflow = events collect {case SwfEvents.WorkflowExecutionStarted(attr) => meta.parseWorkflow(attr.getInput)} head
         
         val hist = history(events)
         log.info("History: " + hist)
@@ -36,7 +35,7 @@ class WorkflowWorker [T, W <: Workflow[T]](swf: AmazonSimpleWorkflowAsyncClient,
         log.info("State: " + st)
         val decision = workflow.flow.decide(
           st, 
-          result => CompleteWorkflow(workflow.serializeResult(result)),
+          result => CompleteWorkflow(meta.serializeResult(result)),
           error => FailWorkflow(error)
         )
         
@@ -44,32 +43,36 @@ class WorkflowWorker [T, W <: Workflow[T]](swf: AmazonSimpleWorkflowAsyncClient,
         
         swf respondDecisionTaskCompletedAsync {
           new RespondDecisionTaskCompletedRequest()
-            .withDecisions (decision match {
-              case ScheduleActivities(activities) => activities map {a =>
-                new Decision()
-                  .withDecisionType(DecisionType.ScheduleActivityTask)
-                  .withScheduleActivityTaskDecisionAttributes(
-                    new ScheduleActivityTaskDecisionAttributes()
-                      .withActivityType(
-                        new ActivityType().withName(a.meta.name).withVersion(a.meta.version)  
-                      )
-                      .withActivityId(a.id)
-                      .withTaskList(
-                        new TaskList().withName(a.meta.defaultTaskList)
-                      )
-                      .withInput(a.input)
-                  )
+            .withDecisions (
+              decision match {
+                case ScheduleActivities(activities) => activities map {a =>
+                  new Decision()
+                    .withDecisionType(DecisionType.ScheduleActivityTask)
+                    .withScheduleActivityTaskDecisionAttributes(
+                      new ScheduleActivityTaskDecisionAttributes()
+                        .withActivityType(
+                          new ActivityType()
+                            .withName(a.meta.name)
+                            .withVersion(a.meta.version)  
+                        )
+                        .withActivityId(a.id)
+                        .withTaskList(
+                          new TaskList().withName(a.meta.defaultTaskList)
+                        )
+                        .withInput(a.input)
+                    )
+                }
+                case WaitOnActivities => Nil
+                case CompleteWorkflow(res) => List(
+                  new Decision()
+                    .withDecisionType(DecisionType.CompleteWorkflowExecution)
+                    .withCompleteWorkflowExecutionDecisionAttributes(
+                      new CompleteWorkflowExecutionDecisionAttributes()
+                        .withResult(res)
+                    )
+                )
               }
-              case WaitOnActivities => Nil
-              case CompleteWorkflow(res) => List(
-                new Decision()
-                  .withDecisionType(DecisionType.CompleteWorkflowExecution)
-                  .withCompleteWorkflowExecutionDecisionAttributes(
-                    new CompleteWorkflowExecutionDecisionAttributes()
-                      .withResult(res)
-                  )
-              )
-            })
+            )
             .withTaskToken(token)
         } recover {
           case e => log.error(e, "Error responding to decision task")

@@ -3,24 +3,22 @@ import com.amazonaws.auth.BasicAWSCredentials
 
 import akka.actor.ActorSystem
 import com.gravitydev.traction._, amazonswf._
-import play.api.libs.json.Json
 import scalaz._, syntax.id._
+import scala.pickling._, json._
 
 object Sample extends App {
   implicit val system = ActorSystem("traction-sample")
   implicit val ec = system.dispatcher
   
-  implicit def helloWorldF = Json.format[HelloWorld]
-  implicit def helloWorldM = ActivityMeta[HelloWorld](
+  implicit val helloWorldM = activityMeta[HelloWorld](
     domain="dev.gravitydev.com",
-    version="1.0",
+   version="1.0",
     name="hello-world-4",
     defaultTaskList="hello-world",
     id = _ => "2"
   )
   
-  implicit def doubleNumberF = Json.format[DoubleNumber]
-  implicit def doubleNumberA = ActivityMeta[DoubleNumber](
+  implicit val doubleNumberA = activityMeta[DoubleNumber](
     domain="dev.gravitydev.com",
     version="1.0",
     name="double-number",
@@ -28,8 +26,7 @@ object Sample extends App {
     id = x => x.number.toString
   )
   
-  implicit def printNumberF = Json.format[PrintNumber]
-  implicit def printNumberA = ActivityMeta[PrintNumber](
+  implicit val printNumberA = activityMeta[PrintNumber](
     domain="dev.gravitydev.com",
     version="1.0",
     name="print-number",
@@ -37,15 +34,13 @@ object Sample extends App {
     id = _.number.toString
   )
   
-  implicit def showNumberF = Json.format[ShowNumber]
-  implicit def showNumberW = WorkflowMeta[ShowNumber](
+  implicit val showNumberW = WorkflowMeta[ShowNumber](
     domain="dev.gravitydev.com",
     version="1.0",
     name="show-number",
     taskList="show-number",
     id = _.number.toString
   )
-  
   
 	case class ShowNumber (number: Int) extends Workflow[String] {
 	  def flow = for {
@@ -91,11 +86,15 @@ object Sample extends App {
   ws.startWorkflowWorker(showNumberW)
   ws.startActivityWorker(doubleNumberA, context = ())
   */
-  
+
+  val four = Serializer.serialize(4)
+  val fourS = Serializer.serialize("4")
+  val eight = Serializer.serialize(8)
+
   val history = List[ActivityState](
-    ActivityComplete(1, "4".right),
-    ActivityComplete(2, "\"4\"".right),
-    ActivityComplete(3, "8".right)
+    ActivityComplete(1, four.right),
+    ActivityComplete(2, fourS.right),
+    ActivityComplete(3, eight.right)
   )
   
   val res = ShowNumber(1).flow.decide(history, res => CompleteWorkflow(res), error => FailWorkflow(error))
