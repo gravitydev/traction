@@ -7,7 +7,7 @@ trait Decision
 /** cake */
 trait System {
   /** Metadata about an activity. Implementation specific. */
-  type ActivityMeta[T, A <: Activity[_,T]]
+  type ActivityMeta[A <: Activity[_,_]]
   type WorkflowMeta[T, W <: Workflow[T]]
 
   type ActivityData
@@ -93,7 +93,7 @@ trait System {
 
   class ActivityStep [T, A <: Activity[_,T]] (
     val activity: A with Activity[_,T]
-  )(implicit meta: ActivityMeta[T,A]) extends Step [T] {
+  )(implicit meta: ActivityMeta[A]) extends Step [T] {
     //def parseResult (res: String): T = Serializer[T].unserialize(res)
     //def serializeResult (res: T): String = Serializer[T].serialize(res)
     

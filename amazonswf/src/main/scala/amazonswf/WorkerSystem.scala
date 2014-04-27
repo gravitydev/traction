@@ -45,7 +45,7 @@ class WorkerSystem (swf: AmazonSimpleWorkflowAsyncClient)(implicit system: Actor
   
   def startActivityWorker [C, T : Serializer, A <: Activity[C,T] : Serializer](meta: SwfActivityMeta[T,A], context: C) = {
     registerActivity(meta) 
-    system.actorOf(Props(new ActivityWorker[C,T,A](swf, meta, context)), name=meta.name+"-activity")
+    //system.actorOf(Props(new ActivityWorker[C,T,A](swf, meta, context)), name=meta.name+"-activity")
   }
 
   def registerActivity[C, T, A <: Activity[C,T]](meta: SwfActivityMeta[T, A with Activity[C,T]]) = {

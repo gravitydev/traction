@@ -111,6 +111,7 @@ case class HelloWorld (name: String) extends Activity [Unit,Unit] {
 case class DoubleNumber (number: Int) extends Activity[Unit,Int] {
   def apply (ctx: Unit) = number * 2
 }
+
 case class PrintNumber (number: Int) extends Activity[Unit,String] {
   def apply (ctx: Unit) = number.toString
 }

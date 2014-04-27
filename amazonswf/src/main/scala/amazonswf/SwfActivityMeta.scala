@@ -1,7 +1,17 @@
 package com.gravitydev.traction
 package amazonswf
 
-class SwfActivityMeta [A <: Activity[_,_]] (
+private [amazonswf] class SwfActivityMetaBuilder [T,A <: Activity[_,T]:Serializer] {
+  def settings (
+    domain: String,
+    name: String, 
+    version: String, 
+    defaultTaskList: String,
+    id: A => String
+  ) = new SwfActivityMeta[T,A](domain, name, version, defaultTaskList, id)
+}
+
+class SwfActivityMeta [T, A <: Activity[_,T]] (
   val domain: String, 
   val name: String, 
   val version: String, 
@@ -12,12 +22,12 @@ class SwfActivityMeta [A <: Activity[_,_]] (
   val defaultTaskScheduleToStartTimeout: Int = 600,
   val defaultTaskStartToCloseTimeout: Int = 600,
   val defaultTaskHeartbeatTimeout: Int = 600
-)(implicit resultS: Serializer[A#Result], activityS: Serializer[A]) {
+)(implicit /*resultS: Serializer[A#Result], */activityS: Serializer[A]) {
   def parseActivity (data: String): A = activityS.unserialize(data)
   def serializeActivity(activity: A): String = activityS.serialize(activity)
 
-  def parseResult (data: String): A#Result = resultS.unserialize(data)
-  def serializeResult(result: T): String = resultS.serialize(result)
+  //def parseResult (data: String): A#Result = resultS.unserialize(data)
+  //def serializeResult(result: A#Result): String = resultS.serialize(result.asInstanceOf[A#Result])
 }
 
 /*

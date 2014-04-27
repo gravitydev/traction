@@ -37,8 +37,10 @@ object TractionBuild extends Build {
       libraryDependencies ++= Seq(
         "com.typesafe.akka" %% "akka-actor"   % "2.1.0",
         "com.typesafe.akka" %% "akka-agent"   % "2.1.0",
-        "com.amazonaws"     % "aws-java-sdk"  % "1.7.5"
-      )
+        "com.amazonaws"     % "aws-java-sdk"  % "1.7.5",
+        "org.scalatest" % "scalatest_2.10" % "2.1.0" % "test"
+      ),
+      addCompilerPlugin("org.scalamacros" % "paradise" % "2.0.0" cross CrossVersion.full)
     ) dependsOn core 
 
   lazy val sample = Project(id = "traction-sample", base = file("sample"))

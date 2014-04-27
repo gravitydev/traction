@@ -1,9 +1,11 @@
 package com.gravitydev.traction
 
 import scala.language.implicitConversions
+import scala.language.experimental.macros
+import scala.reflect.macros.Context
 
 package amazonswf {
-  class SwfActivityData [T, A <: Activity[_,T]](val activity: A, step: Int)(implicit val meta: SwfActivityMeta[T,A]) {
+  class SwfActivityData [A <: Activity[_,_]](val activity: A, step: Int)(implicit val meta: SwfActivityMeta[_,A]) {
     lazy val id = meta.id(activity)
     lazy val input = step + ":" + meta.serializeActivity(activity)
   }
@@ -29,25 +31,30 @@ package amazonswf {
     }
   }
   */
-  case class ScheduleActivities (activities: List[SwfActivityData[_,_]]) extends Decision
+  case class ScheduleActivities (activities: List[SwfActivityData[_]]) extends Decision
 
   case object WaitOnActivities extends Decision
   case class CompleteWorkflow (result: String) extends Decision
   case class FailWorkflow (reason: String) extends Decision
 }
 
+abstract class Check[T] {
+  def run: T
+}
+
 package object amazonswf extends System {
-  type ActivityMeta[A <: Activity[_,_]] = SwfActivityMeta[A]
+  type ActivityMeta[A <: Activity[_,_]] = SwfActivityMeta[_,A]
   type WorkflowMeta[T, W <: Workflow[T]] = SwfWorkflowMeta[T,W]
 
-  type ActivityData = SwfActivityData[_,_]
+  type ActivityData = SwfActivityData[_]
   type WorkflowData = SwfWorkflowData[_,_]
 
   type Complete = CompleteWorkflow
   type CarryOn = WaitOnActivities.type
   type Schedule = ScheduleActivities
 
-  
+ 
+  /* 
   def activityMeta [A <: Activity[_,_]: Serializer](
     domain: String, 
     name: String, 
@@ -59,7 +66,7 @@ package object amazonswf extends System {
     defaultTaskScheduleToStartTimeout: Int = 600,
     defaultTaskStartToCloseTimeout: Int = 600,
     defaultTaskHeartbeatTimeout: Int = 600
-  )(implicit resultSerializer: Serializer[A#Result]) = new SwfActivityMeta[A#Result,A](
+  )(implicit resultSerializer: Serializer[A#Result]) = new SwfActivityMeta[A](
     domain, 
     name, 
     version, 
@@ -70,8 +77,17 @@ package object amazonswf extends System {
     defaultTaskScheduleToStartTimeout,
     defaultTaskStartToCloseTimeout,
     defaultTaskHeartbeatTimeout
-  )(resultSerializer, implicitly[Serializer[A]])
+  )//(resultSerializer, implicitly[Serializer[A]])
+  */
 
+  def activityMeta [A <: Activity[_,_]]: Any = macro activityMeta_impl[A]
+
+  def activityMeta_impl [A <: Activity[_,_] : c.WeakTypeTag] (c: Context) = {
+    import c.universe._
+    val a = weakTypeOf[A]
+    val t = a.members.find(_.name.toString == "apply").get.asMethod.returnType
+    c.Expr[Any](q"""new com.gravitydev.traction.amazonswf.SwfActivityMetaBuilder[$t,$a]()""")
+  }
 
   def carryOn = WaitOnActivities
 
