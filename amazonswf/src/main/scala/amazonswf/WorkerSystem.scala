@@ -4,37 +4,47 @@ package amazonswf
 import com.amazonaws.services.simpleworkflow.AmazonSimpleWorkflowAsyncClient
 import com.amazonaws.services.simpleworkflow.model._
 import akka.actor.{ActorSystem, Props}
+import akka.routing.BroadcastRouter
 import scala.util.control.Exception
 import scala.language.experimental.macros
 import com.typesafe.scalalogging.slf4j.Logging
+import com.gravitydev.awsutil.withAsyncHandler
 
 class WorkerSystem (domain: String, swf: AmazonSimpleWorkflowAsyncClient)(implicit system: ActorSystem) extends Logging {
   import system.dispatcher
-  import Concurrent._
   
   def run [T, W <: Workflow[T]](workflow: W with Workflow[T])(implicit meta: SwfWorkflowMeta[T,W]) = {
     logger.info("Input: " + meta.serializeWorkflow(workflow))
-    swf.startWorkflowExecutionAsync(
-      new StartWorkflowExecutionRequest()
-        .withDomain(domain)
-        .withWorkflowType(new WorkflowType().withName(meta.name).withVersion(meta.version))
-        .withWorkflowId(meta.id(workflow))
-        .withInput(meta.serializeWorkflow(workflow))
-        .withTaskList(new TaskList().withName(meta.taskList))
+    withAsyncHandler[StartWorkflowExecutionRequest,Run](
+      swf.startWorkflowExecutionAsync(
+        new StartWorkflowExecutionRequest()
+          .withDomain(domain)
+          .withWorkflowType(new WorkflowType().withName(meta.name).withVersion(meta.version))
+          .withWorkflowId(meta.id(workflow))
+          .withInput(meta.serializeWorkflow(workflow))
+          .withTaskList(new TaskList().withName(meta.taskList)),
+        _
+      )
     ) recover {case e =>
       logger.error("Error when triggering task", e)
     }
   }
   
-  def startWorkflowWorker [T, W <: Workflow[T]](meta: SwfWorkflowMeta[T,W]) = {
+  def startWorkflowWorker [T, W <: Workflow[T]](meta: SwfWorkflowMeta[T,W])(instances: Int = 1) = {
     registerWorkflow(meta) 
-    system.actorOf(Props(new WorkflowWorker(domain, swf, meta)), name=meta.name+"-workflow")
+    system.actorOf(
+      Props(new WorkflowWorker(domain, swf, meta)).withRouter(BroadcastRouter(instances)),
+      name=meta.name+"-workflow"
+    )
   }
 
   // TODO: use macros to allow starting the activity worker with just the A type param
-  def startActivityWorker [C, T : Serializer, A <: Activity[C,T] : Serializer](meta: SwfActivityMeta[T,A], context: C) = {
+  def startActivityWorker [C, T : Serializer, A <: Activity[C,T] : Serializer](meta: SwfActivityMeta[T,A], context: C)(instances: Int = 1) = {
     registerActivity(meta) 
-    system.actorOf(Props(new ActivityWorker[C,T,A](domain, swf, meta, context)), name=meta.name+"-activity")
+    system.actorOf(
+      Props(new ActivityWorker[C,T,A](domain, swf, meta, context)).withRouter(BroadcastRouter(instances)), 
+      name=meta.name+"-activity"
+    )
   }
 
   def registerWorkflow [W <: Workflow[_]](implicit meta: SwfWorkflowMeta[_,W]) = {

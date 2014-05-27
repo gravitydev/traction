@@ -26,7 +26,7 @@ object Sample extends App {
   
   implicit val showNumberW = workflowMeta[ShowNumber].settings(
     name="show-number",
-    version="1.0",
+    version="1.1",
     taskList="show-number",
     id = "show-number-" + _.number.toString
   )
@@ -34,11 +34,12 @@ object Sample extends App {
 	case class ShowNumber (number: Int) extends Workflow[(String,String,String)] {
 	  def flow: Step[(String,String,String)] = for {  
 	    number   <- DoubleNumber(number)
+      _        <- Step.list( List(PrintNumber(number+30), PrintNumber(1), PrintNumber(2)) )
 	    n        <- PrintNumber(number) |~| PrintNumber(number+1) |~| PrintNumber(number+2)
 	  } yield n
 	}
   
-  val creds = new BasicAWSCredentials("xxxxxxxxxxxxxxxx", "xxxxxxxxxxxxxxxxxx")
+  val creds = new BasicAWSCredentials("xxxxxxxxxxxxxxxxxxx", "xxxxxxxxxxxxxxxxxx")
   val swf = new AmazonSimpleWorkflowAsyncClient(creds)
 
   val ws = new WorkerSystem("dev.gravitydev.com", swf)
@@ -46,14 +47,16 @@ object Sample extends App {
   ws.registerActivity[PrintNumber] 
   ws.registerActivity[DoubleNumber]
   ws.registerWorkflow[ShowNumber]
-  
-  ws.run(ShowNumber(54)) map {x =>
-    println(x)
+ 
+  for (i <- 1 to 10) { 
+    ws.run(ShowNumber(i)) map {x =>
+      println(x)
+    }
   }
   
-  ws.startWorkflowWorker(showNumberW)
-  ws.startActivityWorker(doubleNumberA, context = ())
-  ws.startActivityWorker(printNumberA, context = ())
+  ws.startWorkflowWorker(workflow[ShowNumber])(instances = 1)
+  ws.startActivityWorker(activity[DoubleNumber], context = ())(instances = 5)
+  ws.startActivityWorker(activity[PrintNumber], context = ())(instances = 5)
 }
 
 /*

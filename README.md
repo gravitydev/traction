@@ -26,9 +26,9 @@ A Workflow defines an entire body of work to be performed. It defines the sequen
 // workflow
 case class IndexProjectData (projectId: Long) extends Workflow[Unit] {
   // define the actual process and delegate to activities for the work
-  def flow = for {
+  def flow: Step[Unit] = for { // type ascription required for now, not sure why
     values <- CollectChanges(projectId)
-    result <- IndexStoryData(values) || IndexIssueData(values) // parallel
+    result <- IndexStoryData(values) |~| IndexIssueData(values) // parallel
   } yield result
 }
 ```
@@ -62,9 +62,9 @@ ws run IndexProjectData(projectId)
 
 ```scala
 // machine 2
-ws.startWorkflowWorker[IndexProjectData]()
-ws.startActivityWorker[CollectChanges](dbConnection)
-ws.startActivityWorker[IndexStoryData](searchServer)
-ws.startActivityWorker[IndexIssueData](searchServer)
+ws.startWorkflowWorker(workflow[IndexProjectData])(instances = 2)
+ws.startActivityWorker(activity[CollectChanges], dbConnection)(instances = 4)
+ws.startActivityWorker(activity[IndexStoryData], searchServer)(instances = 4)
+ws.startActivityWorker(activity[IndexIssueData], searchServer)(instances = 4)
 ```
 

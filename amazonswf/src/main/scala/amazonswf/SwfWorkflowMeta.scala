@@ -13,7 +13,7 @@ class SwfWorkflowMetaBuilder [T:Serializer, W <: Workflow[T]:Serializer] {
     id: W => String,
     description: String = "",
     defaultExecutionStartToCloseTimeout: Int = 3600,
-    defaultTaskStartToCloseTimeout: Int = 3600,
+    defaultTaskStartToCloseTimeout: Int = 60,
     childPolicy: String = "TERMINATE"
   ) = new SwfWorkflowMeta[T,W](
     name, version, taskList, id,
