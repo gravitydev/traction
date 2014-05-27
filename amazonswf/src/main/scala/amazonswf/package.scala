@@ -4,7 +4,6 @@ import scala.language.implicitConversions
 import scala.language.experimental.macros
 import scala.reflect.macros.Context
 import scala.reflect.runtime.universe._
-import com.typesafe.scalalogging.slf4j.Logging
 import scalaz._, syntax.validation._
 
 package amazonswf {

@@ -7,10 +7,10 @@ import akka.actor.{ActorSystem, Props}
 import akka.routing.BroadcastRouter
 import scala.util.control.Exception
 import scala.language.experimental.macros
-import com.typesafe.scalalogging.slf4j.Logging
+import com.typesafe.scalalogging.slf4j.StrictLogging
 import com.gravitydev.awsutil.withAsyncHandler
 
-class WorkerSystem (domain: String, swf: AmazonSimpleWorkflowAsyncClient)(implicit system: ActorSystem) extends Logging {
+class WorkerSystem (domain: String, swf: AmazonSimpleWorkflowAsyncClient)(implicit system: ActorSystem) extends StrictLogging {
   import system.dispatcher
   
   def run [T, W <: Workflow[T]](workflow: W with Workflow[T])(implicit meta: SwfWorkflowMeta[T,W]) = {

@@ -1,7 +1,7 @@
 package com.gravitydev.traction
 package amazonswf
 
-import com.typesafe.scalalogging.slf4j.Logging
+import com.typesafe.scalalogging.slf4j.StrictLogging
 import scala.pickling._, json._
 
 // Necessary to allow the usage of named parameters on the activityMeta macro 
@@ -33,7 +33,7 @@ class SwfWorkflowMeta [T:Serializer, W <: Workflow[T]:Serializer] (
   val defaultExecutionStartToCloseTimeout: Int,
   val defaultTaskStartToCloseTimeout: Int,
   val childPolicy: String
-) extends Logging {
+) extends StrictLogging {
   def parseWorkflow (data: String): W = implicitly[Serializer[W]].unserialize(data)
   def serializeWorkflow (workflow: W): String = implicitly[Serializer[W]].serialize(workflow)
 

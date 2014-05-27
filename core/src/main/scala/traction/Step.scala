@@ -1,7 +1,7 @@
 package com.gravitydev.traction
 
 import scalaz._, syntax.validation._, syntax.applicative._
-import com.typesafe.scalalogging.slf4j.Logging
+import com.typesafe.scalalogging.slf4j.StrictLogging
 import scala.reflect.api.TypeTags
 import scala.reflect.runtime.universe._
 
@@ -44,7 +44,7 @@ trait System {
   /**
    * Represents a step in the decision process
    */
-  trait Step [T] extends Logging {
+  trait Step [T] extends StrictLogging {
     /** Given the current history (state), decide what to do */
     def decide (state: WorkflowHistory, onSuccess: T => Decision, onFailure: String => Decision): Decision
 
@@ -65,7 +65,7 @@ trait System {
     def |~| [X](s: Step[X]): Step[(A,B,X)] = new ParallelSteps(this, s) map {case ((a,b),x) => (a,b,x)}
   }
 
-  class MappedStep [T,X](step: Step[T], fn: T=>X) extends Step[X] with Logging {
+  class MappedStep [T,X](step: Step[T], fn: T=>X) extends Step[X] with StrictLogging {
     def decide (state: WorkflowHistory, onSuccess: X => Decision, onFailure: String => Decision) = 
       step.decide(
         state, 
