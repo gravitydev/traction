@@ -15,9 +15,7 @@ trait ConstantAsyncListener extends Actor with ActorLogging {
   def listen: Future[Unit]
   
   // auto start
-  override def preStart() = {
-    self ! ()
-  }
+  override def preStart() = self ! ()
   
   def receive = {case _ =>
     listen map {_ =>
@@ -35,3 +33,4 @@ trait ConstantAsyncListener extends Actor with ActorLogging {
     }
   }
 }
+

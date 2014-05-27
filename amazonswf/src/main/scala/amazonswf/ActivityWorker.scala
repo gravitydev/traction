@@ -7,8 +7,8 @@ import com.amazonaws.services.simpleworkflow.model._
 import Concurrent._
 import scala.language.postfixOps
 
-class ActivityWorker [T, C, A <: Activity[C,T]] (
-  swf: AmazonSimpleWorkflowAsyncClient, meta: SwfActivityMeta[T,A], context: C
+class ActivityWorker [C, T, A <: Activity[C,T]] (
+  domain: String, swf: AmazonSimpleWorkflowAsyncClient, meta: SwfActivityMeta[T,A], context: C
 ) extends ConstantAsyncListener {
   import system.dispatcher
 
@@ -17,7 +17,7 @@ class ActivityWorker [T, C, A <: Activity[C,T]] (
     
     swf pollForActivityTaskAsync {
       new PollForActivityTaskRequest()
-        .withDomain(meta.domain)
+        .withDomain(domain)
         .withTaskList(new TaskList().withName(meta.defaultTaskList))
     } map {task =>
       // if there is a task
@@ -33,7 +33,7 @@ class ActivityWorker [T, C, A <: Activity[C,T]] (
           swf respondActivityTaskCompletedAsync {
             new RespondActivityTaskCompletedRequest()
               .withTaskToken(token)
-              //.withResult(meta.serializeResult(result))
+              .withResult(meta.serializeResult(result))
           }
         } catch {
           case e: Throwable => swf.respondActivityTaskFailedAsync {

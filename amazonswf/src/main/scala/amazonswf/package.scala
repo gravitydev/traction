@@ -3,39 +3,44 @@ package com.gravitydev.traction
 import scala.language.implicitConversions
 import scala.language.experimental.macros
 import scala.reflect.macros.Context
+import scala.reflect.runtime.universe._
+import com.typesafe.scalalogging.slf4j.Logging
+import scalaz._, syntax.validation._
 
 package amazonswf {
-  class SwfActivityData [A <: Activity[_,_]](val activity: A, step: Int)(implicit val meta: SwfActivityMeta[_,A]) {
+  private [amazonswf] case class SwfActivityData [A <: Activity[_,_]](val activity: A, step: Int)(implicit val meta: SwfActivityMeta[_,A]) {
     lazy val id = meta.id(activity)
     lazy val input = step + ":" + meta.serializeActivity(activity)
+
+    override def toString = "SwfActivityData(" + id + ": " + input + ")"
   }
 
-  class SwfWorkflowData [T, W <: Workflow[T]](val workflow: W)(implicit val meta: SwfWorkflowMeta[T,W])
+  case class ScheduleActivities (activities: List[SwfActivityData[_]]) extends Decision.Schedule
 
-  /*
-  class ActivityScheduleData (
-    val meta: amazonswf.SwfActivityMeta[_], 
-    val id: String, 
-    val input: String,
-    val stepNumber: Int
-  )
-  */
-  /*
-  object ScheduleActivity {
-    def apply [A <: Activity[_,_] : Serializer] (activity: A, meta: amazonswf.SwfActivityMeta[A], stepNumber: Int) = {
-      new ScheduleActivity(
-        meta = meta,
-        id = 
-        input = stepNumber + ":" + Serializer[A].serialize(activity)
-      )
-    }
+  case object WaitOnActivities extends Decision.CarryOn
+  case class CompleteWorkflow [T] (result: T) extends Decision.Complete[T]
+  case class FailWorkflow (reason: String) extends Decision.Fail
+
+  sealed trait ActivityState {
+    def stepNumber: Int
   }
-  */
-  case class ScheduleActivities (activities: List[SwfActivityData[_]]) extends Decision
+  case class ActivityInProcess (stepNumber: Int) extends ActivityState
+  case class ActivityComplete (stepNumber: Int, result: String \/ String) extends ActivityState
 
-  case object WaitOnActivities extends Decision
-  case class CompleteWorkflow (result: String) extends Decision
-  case class FailWorkflow (reason: String) extends Decision
+
+  class ActivityStep [T, A <: Activity[_,T]] (
+    val activity: A with Activity[_,T]
+  )(implicit meta: SwfActivityMeta[T,A]) extends Step [T] {
+
+    def decide (history: List[ActivityState], onSuccess: T=>Decision, onFailure: String=>Decision, stepNumber: Int): Decision = history.find(_.stepNumber == stepNumber) map {
+      case ActivityComplete(_, res: \/[String,String]) => res fold (
+        error => onFailure(error), 
+        result => onSuccess( meta.parseResult(result) )
+      ) : Decision
+      case ActivityInProcess(_) => carryOn 
+    } getOrElse ( ScheduleActivities( List(new SwfActivityData(activity, stepNumber)) ): Decision)
+    
+  }
 }
 
 abstract class Check[T] {
@@ -43,42 +48,17 @@ abstract class Check[T] {
 }
 
 package object amazonswf extends System {
+  type WorkflowHistory = List[ActivityState]
   type ActivityMeta[A <: Activity[_,_]] = SwfActivityMeta[_,A]
   type WorkflowMeta[T, W <: Workflow[T]] = SwfWorkflowMeta[T,W]
 
-  type ActivityData = SwfActivityData[_]
-  type WorkflowData = SwfWorkflowData[_,_]
-
-  type Complete = CompleteWorkflow
+  type Complete[T] = CompleteWorkflow[T]
   type CarryOn = WaitOnActivities.type
-  type Schedule = ScheduleActivities
+  type Schedule = ScheduleActivities 
 
- 
-  /* 
-  def activityMeta [A <: Activity[_,_]: Serializer](
-    domain: String, 
-    name: String, 
-    version: String, 
-    defaultTaskList: String,
-    id: A => String,
-    description: String = "",
-    defaultTaskScheduleToCloseTimeout: Int = 600,
-    defaultTaskScheduleToStartTimeout: Int = 600,
-    defaultTaskStartToCloseTimeout: Int = 600,
-    defaultTaskHeartbeatTimeout: Int = 600
-  )(implicit resultSerializer: Serializer[A#Result]) = new SwfActivityMeta[A](
-    domain, 
-    name, 
-    version, 
-    defaultTaskList, 
-    id,   
-    description, 
-    defaultTaskScheduleToCloseTimeout,
-    defaultTaskScheduleToStartTimeout,
-    defaultTaskStartToCloseTimeout,
-    defaultTaskHeartbeatTimeout
-  )//(resultSerializer, implicitly[Serializer[A]])
-  */
+  def combineSchedules(a: ScheduleActivities, b: ScheduleActivities) = {
+    ScheduleActivities(a.activities ++ b.activities)
+  }
 
   def activityMeta [A <: Activity[_,_]]: Any = macro activityMeta_impl[A]
 
@@ -89,56 +69,21 @@ package object amazonswf extends System {
     c.Expr[Any](q"""new com.gravitydev.traction.amazonswf.SwfActivityMetaBuilder[$t,$a]()""")
   }
 
+  def workflowMeta [W <: Workflow[_]]: Any = macro workflowMeta_impl[W]
+
+  def workflowMeta_impl [W <: Workflow[_] : c.WeakTypeTag] (c: Context) = {
+    import c.universe._
+    val w = weakTypeOf[W]
+    val t = w.members.find(_.name.toString == "flow").get.asMethod.returnType.asInstanceOf[TypeRefApi].args.head
+    c.Expr[Any](q"""new com.gravitydev.traction.amazonswf.SwfWorkflowMetaBuilder[$t,$w]()""")
+  }
+
   def carryOn = WaitOnActivities
 
-  /*
-  def activityData [T, A <: Activity[_,T]](activity: A, step: Int)(implicit meta: ActivityMeta[T,A]): ActivityData = {
-    new ActivityScheduleData(
-      meta, 
-      meta.id(activity), 
-      step + ":" + Serializer[A].serialize(activity),
-      step
-    )
-  }
-  */
+  def complete [T] (res: T) = CompleteWorkflow(res)
 
-//def activityData[A <: com.gravitydev.traction.Activity[_, _]](activity: A,step: Int)(implicit evidence$2: com.gravitydev.traction.amazonswf.package.ActivityMeta[A],implicit evidence$3: com.gravitydev.traction.Serializer[A]): com.gravitydev.traction.amazonswf.package.ActivityData = ???
+  implicit def toStep1 [T,A<:Activity[_,T]](activity: A with Activity[_,T])(implicit meta: SwfActivityMeta[T, A with Activity[_,T]]): Step1[T] = 
+    new Step1(new ActivityStep(activity)(meta))
  
-  def schedule (activities: List[ActivityData]) = ScheduleActivities(activities)
-
-  implicit def toStep [C,T,A<:Activity[C,T]](activity: A with Activity[C,T])(implicit meta: ActivityMeta[A]) = 
-    new ActivityStep(activity)
-
-  //implicit def toWrappedActivity [C,T:Serializer,A<:Activity[C,T]:ActivityMeta:Serializer](a: A with Activity[C,T]) = new ActivityWrapper(a)
- 
-  /* 
-  implicit def singleActivityWorkflowM [C,T,A<:Activity[C,T]](implicit meta: ActivityMeta[T,A]) = {
-    SwfWorkflowMeta[SingleActivityWorkflow[C,T,A]] (
-      domain    = meta.domain,
-      name      = meta.name,
-      version   = meta.version,
-      taskList  = meta.name + ".decisions",
-      id        = wf => am.id(wf.activity)
-    )
-  }
-  */
- 
-  /* 
-  private def activityMetaToWorkflowMeta [C,T: Serializer,A<:Activity[C,T]: Serializer] (meta: SwfActivityMeta[A with Activity[C,T]]) = {
-    singleActivityWorkflowM[C,T,A](Serializer[T], meta)
-  }
-  */
- 
-  /* 
-  implicit class ActivityMetaPimp[C,T:Serializer,A<:Activity[C,T]: Serializer](m: SwfActivityMeta[A with Activity[C,T]]) {
-    def asWorkflow = activityMetaToWorkflowMeta[C,T,A](m)
-  }
-  */
- 
-  /* 
-  def activity [A <: Activity[_,_] : ActivityMeta] = implicitly[ActivityMeta[A]]
-  def workflow [WF <: Workflow[_] : WorkflowMeta] = implicitly[WorkflowMeta[WF]]
-  */
-  
 }
 

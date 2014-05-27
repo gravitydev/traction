@@ -1,25 +1,30 @@
 package com.gravitydev.traction
 package amazonswf
 
-import akka.actor.{Actor, ActorLogging, Props}
+import akka.actor.{Actor, ActorLogging, Props, FSM}
 import com.amazonaws.services.simpleworkflow.AmazonSimpleWorkflowAsyncClient
-import com.amazonaws.services.simpleworkflow.model._
+import com.amazonaws.services.simpleworkflow.model.{Decision => SwfDecision, _}
 import Concurrent._
 import scala.collection.JavaConversions._
 import scala.language.postfixOps
 import scalaz._, std.either._, syntax.id._
+import com.gravitydev.awsutil.withAsyncHandler
 
-class WorkflowWorker [T, W <: Workflow[T]](swf: AmazonSimpleWorkflowAsyncClient, meta: SwfWorkflowMeta[T,W]) extends ConstantAsyncListener {
+class WorkflowWorker [T, W <: Workflow[T]](domain: String, swf: AmazonSimpleWorkflowAsyncClient, meta: SwfWorkflowMeta[T,W]) extends ConstantAsyncListener {
   import system.dispatcher
   
   def listen = {
     log.info("Listening for tasks on: " + meta.taskList)
-    
-    swf pollForDecisionTaskAsync {
-      new PollForDecisionTaskRequest()
-        .withDomain(meta.domain)
-        .withTaskList(new TaskList().withName(meta.taskList))
-    } map {task => 
+
+    withAsyncHandler[PollForDecisionTaskRequest, DecisionTask](
+      swf.pollForDecisionTaskAsync(
+        new PollForDecisionTaskRequest()
+          .withDomain(domain)
+          .withTaskList(new TaskList().withName(meta.taskList)),
+        _ 
+      )
+    ) map {task =>
+      log.info("Received task: " + task.getTaskToken)
       // if there is a task
       Option(task.getTaskToken) filter (_!="") foreach {token =>
         val events = task.getEvents.toList
@@ -46,7 +51,7 @@ class WorkflowWorker [T, W <: Workflow[T]](swf: AmazonSimpleWorkflowAsyncClient,
             .withDecisions (
               decision match {
                 case ScheduleActivities(activities) => activities map {a =>
-                  new Decision()
+                  new SwfDecision()
                     .withDecisionType(DecisionType.ScheduleActivityTask)
                     .withScheduleActivityTaskDecisionAttributes(
                       new ScheduleActivityTaskDecisionAttributes()
@@ -64,11 +69,11 @@ class WorkflowWorker [T, W <: Workflow[T]](swf: AmazonSimpleWorkflowAsyncClient,
                 }
                 case WaitOnActivities => Nil
                 case CompleteWorkflow(res) => List(
-                  new Decision()
+                  new SwfDecision()
                     .withDecisionType(DecisionType.CompleteWorkflowExecution)
                     .withCompleteWorkflowExecutionDecisionAttributes(
                       new CompleteWorkflowExecutionDecisionAttributes()
-                        .withResult(res)
+                        .withResult(meta.serializeResult(res.asInstanceOf[T]))
                     )
                 )
               }
@@ -90,17 +95,24 @@ class WorkflowWorker [T, W <: Workflow[T]](swf: AmazonSimpleWorkflowAsyncClient,
       
     events collect {
       case SwfEvents.ActivityTaskStarted(attr)    => ActivityStarted(getStepNumber(attr.getScheduledEventId))
-      case SwfEvents.ActivityTaskCompleted(attr)  => ActivitySucceeded(getStepNumber(attr.getScheduledEventId), attr.getResult)
+      case SwfEvents.ActivityTaskCompleted(attr)  => {
+        log.info("ATTR: " + attr)
+        ActivitySucceeded(getStepNumber(attr.getScheduledEventId), attr.getResult)
+      }
       case SwfEvents.ActivityTaskFailed(attr)     => ActivityFailed(getStepNumber(attr.getScheduledEventId), attr.getReason+": "+attr.getDetails)
     }
   }
   
   def state (hist: List[ActivityEvent]): List[ActivityState] = hist collect {
     case started @ ActivityStarted(stepNumber) => hist.find(ev => ev.stepNumber == stepNumber && started != ev) flatMap {
-      case ActivitySucceeded(num, res) => Some(ActivityComplete(num, res.right[String]))
+      case ActivitySucceeded(num, res) => {
+        log.info("Success: " + num + ": " + res)
+        Some(ActivityComplete(num, res.right[String]))
+      }
       case ActivityFailed(num, reason) => Some(ActivityComplete(num, reason.left))
       case x => sys.error("Unhandled event: " + x)
     } getOrElse ActivityInProcess(stepNumber)
   }
 
 }
+

@@ -4,10 +4,12 @@ import Keys._
 object TractionBuild extends Build {
   val gravityRepo = "gravitydev" at "http://repos.gravitydev.com/app/repos/12"
 
+  override def rootProject = Some(core)
+
   val commonSettings = Seq(
     organization  := "com.gravitydev",
     version       := "0.0.5-SNAPSHOT",
-    scalaVersion  := "2.10.3",
+    scalaVersion  := "2.10.4",
     scalacOptions ++= Seq("-deprecation","-unchecked"/*,"-Xlog-implicits","-XX:-OmitStackTraceInFastThrow"*/),
     testOptions in Test += Tests.Argument("-oF"),
     publishTo := Some(gravityRepo),
@@ -23,10 +25,11 @@ object TractionBuild extends Build {
       name := "traction-core",
       //publishTo := Some(gravityRepo),
       libraryDependencies ++= Seq(
-        "org.scala-lang" %% "scala-pickling" % "0.8.0-SNAPSHOT",
+        "org.scala-lang" %% "scala-pickling" % "0.9.0-SNAPSHOT",
         "org.slf4j"     % "slf4j-api"     % "1.6.4",
         "org.scalatest" %%  "scalatest"   % "1.9.1"     % "test",
-        "org.scalaz"    %% "scalaz-core" % "7.0.2"
+        "org.scalaz"    %% "scalaz-core" % "7.0.2",
+        "com.typesafe" %% "scalalogging-slf4j" % "1.0.1"
       )
     )
 
@@ -46,5 +49,10 @@ object TractionBuild extends Build {
   lazy val sample = Project(id = "traction-sample", base = file("sample"))
     .dependsOn(core, amazonswf)
     .settings(commonSettings:_*)
+    .settings(
+      libraryDependencies ++= Seq(
+        "ch.qos.logback" % "logback-classic" % "1.1.2" % "runtime"
+      )
+    )
 }
 
