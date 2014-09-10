@@ -4,7 +4,6 @@ import com.amazonaws.auth.BasicAWSCredentials
 import akka.actor.ActorSystem
 import com.gravitydev.traction._, amazonswf._
 import scalaz._, syntax.id._
-import scala.pickling._, json._
 
 object Sample extends App {
   implicit val system = ActorSystem("traction-sample")

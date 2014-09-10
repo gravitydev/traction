@@ -1,6 +1,5 @@
 package com.gravitydev.traction
 package amazonswf
-import scala.pickling._, json._
 
 // Necessary to allow the usage of named parameters on the activityMeta macro 
 class SwfActivityMetaBuilder [T:Serializer,A <: Activity[_,T]:Serializer] {

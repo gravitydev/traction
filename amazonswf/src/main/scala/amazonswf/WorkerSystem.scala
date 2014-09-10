@@ -8,23 +8,20 @@ import akka.routing.BroadcastRouter
 import scala.util.control.Exception
 import scala.language.experimental.macros
 import com.typesafe.scalalogging.slf4j.StrictLogging
-import com.gravitydev.awsutil.withAsyncHandler
+import com.gravitydev.awsutil.awsToScala
 
 class WorkerSystem (domain: String, swf: AmazonSimpleWorkflowAsyncClient)(implicit system: ActorSystem) extends StrictLogging {
   import system.dispatcher
   
   def run [T, W <: Workflow[T]](workflow: W with Workflow[T])(implicit meta: SwfWorkflowMeta[T,W]) = {
     logger.info("Input: " + meta.serializeWorkflow(workflow))
-    withAsyncHandler[StartWorkflowExecutionRequest,Run](
-      swf.startWorkflowExecutionAsync(
-        new StartWorkflowExecutionRequest()
-          .withDomain(domain)
-          .withWorkflowType(new WorkflowType().withName(meta.name).withVersion(meta.version))
-          .withWorkflowId(meta.id(workflow))
-          .withInput(meta.serializeWorkflow(workflow))
-          .withTaskList(new TaskList().withName(meta.taskList)),
-        _
-      )
+    awsToScala(swf.startWorkflowExecutionAsync)(
+      new StartWorkflowExecutionRequest()
+        .withDomain(domain)
+        .withWorkflowType(new WorkflowType().withName(meta.name).withVersion(meta.version))
+        .withWorkflowId(meta.id(workflow))
+        .withInput(meta.serializeWorkflow(workflow))
+        .withTaskList(new TaskList().withName(meta.taskList))
     ) recover {case e =>
       logger.error("Error when triggering task", e)
     }

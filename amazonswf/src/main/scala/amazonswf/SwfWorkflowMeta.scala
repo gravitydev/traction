@@ -2,7 +2,6 @@ package com.gravitydev.traction
 package amazonswf
 
 import com.typesafe.scalalogging.slf4j.StrictLogging
-import scala.pickling._, json._
 
 // Necessary to allow the usage of named parameters on the activityMeta macro 
 class SwfWorkflowMetaBuilder [T:Serializer, W <: Workflow[T]:Serializer] {

@@ -1,11 +1,12 @@
 package com.gravitydev.traction
 package amazonswf
 
+import com.gravitydev.awsutil._
 import akka.actor.{Actor, ActorLogging}
 import com.amazonaws.services.simpleworkflow.AmazonSimpleWorkflowAsyncClient
 import com.amazonaws.services.simpleworkflow.model._
+import com.gravitydev.awsutil.awsToScala
 import scala.language.postfixOps
-import com.gravitydev.awsutil.withAsyncHandler
 
 class ActivityWorker [C, T, A <: Activity[C,T]] (
   domain: String, swf: AmazonSimpleWorkflowAsyncClient, meta: SwfActivityMeta[T,A], context: C
@@ -15,12 +16,10 @@ class ActivityWorker [C, T, A <: Activity[C,T]] (
   def listen = {
     log.info("Listening for tasks on: " + meta.defaultTaskList)
 
-    withAsyncHandler[PollForActivityTaskRequest,ActivityTask](    
-      swf.pollForActivityTaskAsync(
-        new PollForActivityTaskRequest()
-          .withDomain(domain)
-          .withTaskList(new TaskList().withName(meta.defaultTaskList))
-      , _)
+    com.gravitydev.awsutil.awsToScala(swf.pollForActivityTaskAsync)(
+      new PollForActivityTaskRequest()
+        .withDomain(domain)
+        .withTaskList(new TaskList().withName(meta.defaultTaskList))
     ) map {task =>
       // if there is a task
       Option(task.getTaskToken) filter (_!="") foreach {token =>

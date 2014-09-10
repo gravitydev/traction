@@ -8,15 +8,16 @@ object TractionBuild extends Build {
 
   val commonSettings = Seq(
     organization  := "com.gravitydev",
-    version       := "0.1.0-SNAPSHOT",
-    scalaVersion  := "2.10.3",
-    crossScalaVersions := Seq("2.11.0", "2.10.3"),
+    version       := "0.1.1-upickle-SNAPSHOT",
+    scalaVersion  := "2.11.2",
+    crossScalaVersions := Seq("2.11.2", "2.10.3"),
     scalacOptions ++= Seq("-deprecation","-unchecked"/*,"-Xlog-implicits","-XX:-OmitStackTraceInFastThrow"*/),
     testOptions in Test += Tests.Argument("-oF"),
     publishTo := Some(gravityRepo),
     resolvers ++= Seq(
       "Typesafe Repository" at "http://repo.typesafe.com/typesafe/releases/", 
-      Resolver.sonatypeRepo("snapshots") // for scala-pickling
+      "bintray/non" at "http://dl.bintray.com/non/maven",
+      gravityRepo
     )
   )
 
@@ -25,7 +26,7 @@ object TractionBuild extends Build {
     .settings(
       name := "traction-core",
       libraryDependencies ++= Seq(
-        "org.scala-lang" %% "scala-pickling" % "0.9.0-SNAPSHOT",
+        "com.lihaoyi" %% "upickle" % "0.2.4",
         "org.slf4j"     % "slf4j-api"     % "1.6.4",
         "org.scalatest" %% "scalatest" % "2.1.6" % "test",
         "org.scalaz"    %% "scalaz-core" % "7.1.0-M7",
@@ -40,10 +41,10 @@ object TractionBuild extends Build {
       libraryDependencies ++= Seq(
         "com.typesafe.akka" %% "akka-actor"   % "2.3.3",
         "com.typesafe.akka" %% "akka-agent"   % "2.3.3",
-        "com.amazonaws"     % "aws-java-sdk"  % "1.7.5",
+        "com.gravitydev" %% "awsutil" % "0.0.2-SNAPSHOT",
         "org.scalatest" %% "scalatest" % "2.1.6" % "test"
       ),
-      addCompilerPlugin("org.scalamacros" % "paradise" % "2.0.0" cross CrossVersion.full)
+      addCompilerPlugin("org.scalamacros" % "paradise" % "2.0.1" cross CrossVersion.full)
     ) dependsOn core 
 
   lazy val sample = Project(id = "traction-sample", base = file("sample"))
