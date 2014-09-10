@@ -38,12 +38,12 @@ object TractionBuild extends Build {
     .settings(commonSettings:_*)
     .settings(
       name := "traction-amazonswf",
-      libraryDependencies ++= Seq(
+      libraryDependencies ++= (Seq(
         "com.typesafe.akka" %% "akka-actor"   % "2.3.3",
         "com.typesafe.akka" %% "akka-agent"   % "2.3.3",
         "com.gravitydev" %% "awsutil" % "0.0.2-SNAPSHOT",
         "org.scalatest" %% "scalatest" % "2.1.6" % "test"
-      ),
+      ) ++ (if (scalaVersion.value startsWith "2.10") Seq("org.scalamacros" %% "quasiquotes" % "2.0.1") else Seq())),
       addCompilerPlugin("org.scalamacros" % "paradise" % "2.0.1" cross CrossVersion.full)
     ) dependsOn core 
 
