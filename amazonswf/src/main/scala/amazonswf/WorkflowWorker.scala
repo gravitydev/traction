@@ -7,7 +7,7 @@ import com.amazonaws.services.simpleworkflow.model.{Decision => SwfDecision, _}
 import scala.collection.JavaConversions._
 import scala.language.postfixOps
 import scalaz._, std.either._, syntax.id._
-import com.gravitydev.awsutil.withAsyncHandler
+import com.gravitydev.awsutil.awsToScala
 
 class WorkflowWorker [T, W <: Workflow[T]](domain: String, swf: AmazonSimpleWorkflowAsyncClient, meta: SwfWorkflowMeta[T,W]) extends ConstantAsyncListener {
   import system.dispatcher
@@ -15,13 +15,10 @@ class WorkflowWorker [T, W <: Workflow[T]](domain: String, swf: AmazonSimpleWork
   def listen = {
     log.info("Listening for tasks on: " + meta.taskList)
 
-    withAsyncHandler[PollForDecisionTaskRequest, DecisionTask](
-      swf.pollForDecisionTaskAsync(
-        new PollForDecisionTaskRequest()
-          .withDomain(domain)
-          .withTaskList(new TaskList().withName(meta.taskList)),
-        _ 
-      )
+    awsToScala(swf.pollForDecisionTaskAsync)(
+      new PollForDecisionTaskRequest()
+        .withDomain(domain)
+        .withTaskList(new TaskList().withName(meta.taskList))
     ) map {task =>
       log.info("Received task: " + task.getTaskToken)
       // if there is a task
@@ -45,42 +42,39 @@ class WorkflowWorker [T, W <: Workflow[T]](domain: String, swf: AmazonSimpleWork
         
         log.info("Decision: " + decision)
        
-        withAsyncHandler[RespondDecisionTaskCompletedRequest,Void]( 
-          swf.respondDecisionTaskCompletedAsync(
-            new RespondDecisionTaskCompletedRequest()
-              .withDecisions (
-                decision match {
-                  case ScheduleActivities(activities) => activities map {a =>
-                    new SwfDecision()
-                      .withDecisionType(DecisionType.ScheduleActivityTask)
-                      .withScheduleActivityTaskDecisionAttributes(
-                        new ScheduleActivityTaskDecisionAttributes()
-                          .withActivityType(
-                            new ActivityType()
-                              .withName(a.meta.name)
-                              .withVersion(a.meta.version)  
-                          )
-                          .withActivityId(a.id)
-                          .withTaskList(
-                            new TaskList().withName(a.meta.defaultTaskList)
-                          )
-                          .withInput(a.input)
-                      )
-                  }
-                  case WaitOnActivities => Nil
-                  case CompleteWorkflow(res) => List(
-                    new SwfDecision()
-                      .withDecisionType(DecisionType.CompleteWorkflowExecution)
-                      .withCompleteWorkflowExecutionDecisionAttributes(
-                        new CompleteWorkflowExecutionDecisionAttributes()
-                          .withResult(meta.serializeResult(res.asInstanceOf[T]))
-                      )
-                  )
+        awsToScala(swf.respondDecisionTaskCompletedAsync)(
+          new RespondDecisionTaskCompletedRequest()
+            .withDecisions (
+              decision match {
+                case ScheduleActivities(activities) => activities map {a =>
+                  new SwfDecision()
+                    .withDecisionType(DecisionType.ScheduleActivityTask)
+                    .withScheduleActivityTaskDecisionAttributes(
+                      new ScheduleActivityTaskDecisionAttributes()
+                        .withActivityType(
+                          new ActivityType()
+                            .withName(a.meta.name)
+                            .withVersion(a.meta.version)  
+                        )
+                        .withActivityId(a.id)
+                        .withTaskList(
+                          new TaskList().withName(a.meta.defaultTaskList)
+                        )
+                        .withInput(a.input)
+                    )
                 }
-              )
-              .withTaskToken(token),
-            _
-          )
+                case WaitOnActivities => Nil
+                case CompleteWorkflow(res) => List(
+                  new SwfDecision()
+                    .withDecisionType(DecisionType.CompleteWorkflowExecution)
+                    .withCompleteWorkflowExecutionDecisionAttributes(
+                      new CompleteWorkflowExecutionDecisionAttributes()
+                        .withResult(meta.serializeResult(res.asInstanceOf[T]))
+                    )
+                )
+              }
+            )
+            .withTaskToken(token)
         ) recover {
           case e => log.error(e, "Error responding to decision task")
         }
